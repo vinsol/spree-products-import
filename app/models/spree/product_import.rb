@@ -84,7 +84,6 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def get_tax_category(tax_category_name)
-    tax_category_name = tax_category_name.strip
     if tax_category_name.present?
       Spree::TaxCategory.find_or_create_by!(name: tax_category_name)
     else
@@ -93,7 +92,6 @@ class Spree::ProductImport < ActiveRecord::Base
   end
 
   def get_shipping_category(shipping_category_name)
-    shipping_category_name = shipping_category_name.strip
     if shipping_category_name.present?
       Spree::ShippingCategory.find_or_create_by!(name: shipping_category_name)
     else
