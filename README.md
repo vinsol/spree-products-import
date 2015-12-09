@@ -19,6 +19,34 @@ bundle
 bundle exec rails g spree_products_import:install
 ```
 
+USAGE
+-----
+
+To start the import process go to admin > products menu and select Product Imports. It provides options for two types of csv files:
+
+1. Product CSV: The following fields are supported
+   * slug: Non mandatory. One will be generated if not provided. If provided a search will be attempted first to update the product. Else a new product will be created.
+   * name: Mandatory
+   * price: Mandatory price of product. Will use the default currency.
+   * cost_price: Non mandatory. Will use the default currency.
+   * available_on: Non mandatory.
+   * shipping_category: Non mandatory. If not provided it will attempt to use the category named 'Default'. If default category is unavailable as well it will use the first shipping category available.
+   * tax_category: Non mandatory. If not provided it will be set to nil.
+   * taxons: Non mandatory. Use '->' to specify the taxon hierarchy i.e. 'Parent -> Child'
+   * option_types: Non mandatory
+   * description: Non mandatory
+   * images: Non mandatory. Provide absolute path to the local file system folder containing the images. currently does not support downloading images.
+   
+2. Variant CSV: The following fields are supported
+   * sku: Non mandatory. will use "" if not provided.
+   * slug: Mandatory. Slug of the product. The product must exist to create the variant.
+   * cost_price: Non mandatory.
+   * cost_currency: Non mandatory.
+   * tax_category: Non mandatory. 
+   * stock_items_count: Non mandatory. Will be set to 0 if not provided.
+   * option_values: Mandatory. All option type for the product should be provided.
+
+
 Testing
 -------
 
