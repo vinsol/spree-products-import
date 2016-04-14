@@ -154,12 +154,6 @@ class Spree::ProductImport < ActiveRecord::Base
         product = Spree::Product.new
       end
 
-      # if product_data[:vname].present? && (vendor = Spree::Vendor.find_by('lower(vname) = ?', product_data.delete(:vname).try(:downcase)))
-      #   product_data[:vendor_id] = vendor.id
-      # end
-
-      # raise 'vname is required.' if product.vendor.blank? && product_data[:vendor_id].blank?
-
       product_data[:description] = CGI.unescapeHTML(product_data[:description]) if product_data[:description].present?
       product_data[:tax_category] = get_tax_category(product_data[:tax_category]) if product_data[:tax_category].present?
       product_data[:shipping_category] = get_shipping_category(product_data[:shipping_category])
