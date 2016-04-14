@@ -5,9 +5,9 @@ class Spree::Admin::ProductImportsController < Spree::Admin::BaseController
   end
 
   def create
-    @product_import = Spree::ProductImport.new(product_import_params[:product_import])
+    @product_import = Spree::ProductImport.new(product_import_params.merge(user_id: spree_current_user.id))
     if @product_import.save
-      redirect_to admin_url, notice: "Import process started successfully"
+      redirect_to admin_product_imports_url, notice: "Import process started successfully"
     else
       render :index
     end
@@ -15,8 +15,6 @@ class Spree::Admin::ProductImportsController < Spree::Admin::BaseController
 
   private
     def product_import_params
-      params.permit(product_import: [:variants_csv, :products_csv])
+      params.require(:product_import).permit(:products_csv)
     end
-
-
 end

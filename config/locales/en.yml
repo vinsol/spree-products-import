@@ -3,3 +3,5 @@
 
 en:
   hello: "Hello world"
+  spree:
+    export_csv: 'Export CSV'

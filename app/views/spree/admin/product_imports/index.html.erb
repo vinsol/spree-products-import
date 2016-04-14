@@ -1,17 +1,11 @@
 <div class="page-header">
-  <h1>Bulk Import Products<small> upload the csv files to start the import process</small></h1>
+  <h1>Bulk Import Products<small> upload the csv file to start the import process</small></h1>
 </div>
 
-<%= render :partial => 'spree/shared/error_messages', :locals => { :target => @import_product } %>
+<%= render partial: 'spree/shared/error_messages', locals: { target: @product_import } %>
 
 <div class="col-sm-12 content">
   <%= form_for @product_import, url: admin_product_imports_path(@product_import) do |f| %>
-    <div class="row">
-      <div class="form-group col-sm-6">
-        <%= f.label :variants_csv, class: 'col-sm-6 control-label'%>
-        <%= f.file_field :variants_csv %>
-      </div>
-    </div>
     <div class="row">
       <div class="form-group col-sm-6">
         <%= f.label :products_csv, class: 'col-sm-6 control-label' %>
@@ -19,7 +13,7 @@
       </div>
     </div>
     <div class="form-actions">
-      <%= f.submit" Start", class: 'btn btn-primary' %>
+      <%= f.submit "Start", class: 'btn btn-primary' %>
     </div>
   <% end %>
 </div>
