@@ -5,3 +5,7 @@ en:
   hello: "Hello world"
   spree:
     export_csv: 'Export CSV'
+    admin:
+      product_import:
+        success: 'Import process started successfuly"'
+        error: 'Error! cannot start product import'

@@ -2,5 +2,5 @@ Deface::Override.new(
   virtual_path: 'spree/admin/shared/sub_menu/_product',
   name: 'import_products_tab',
   insert_bottom: "#sidebar-product",
-  text: %Q{ <%= tab :product_imports %> }
+  text: %Q{ <%= tab :product_imports, url: new_admin_product_import_path %> }
 )
