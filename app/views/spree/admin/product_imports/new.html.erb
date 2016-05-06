@@ -2,7 +2,7 @@
   <h1>Bulk Import Products<small> upload the csv files to start the import process</small></h1>
 </div>
 
-<%= render :partial => 'spree/shared/error_messages', :locals => { :target => @import_product } %>
+<%= render partial: 'spree/shared/error_messages', locals: { :target => @import_product } %>
 
 <div class="col-sm-12 content">
   <%= form_for @product_import, url: admin_product_imports_path(@product_import) do |f| %>
