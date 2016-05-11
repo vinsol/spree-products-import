@@ -1,6 +1,8 @@
 require 'csv'
 
 class Spree::ProductImport < ActiveRecord::Base
+  IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'].to_set
+  OPTIONS_SEPERATOR = '->'
   # ProductImport presumes that sku is a required field for variant
 
   #### Update ####
@@ -19,17 +21,6 @@ class Spree::ProductImport < ActiveRecord::Base
   # Product row should be followed by respective variant rows
   # Slug is unique identifier of product
   # SKU is unique identifier of variant
-
-  IMPORTABLE_PRODUCT_FIELDS = [:slug, :sku, :name, :price, :cost_price, :available_on, :shipping_category, :tax_category,
-                              :taxons, :option_types, :properties, :description, :option_values, :images, :stocks, :weight,
-                              :height, :width, :depth].to_set
-  IMPORTABLE_VARIANT_FIELDS = [:sku, :price, :cost_price, :tax_category, :option_values, :images, :stocks, :weight,
-                              :height, :width, :depth].to_set
-
-  RELATED_PRODUCT_FIELDS = [:taxons, :option_types, :option_values, :properties, :images, :stocks].to_set
-  RELATED_VARIANT_FIELDS = [:option_values, :images, :stocks].to_set
-  IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'].to_set
-  OPTIONS_SEPERATOR = '->'
 
   attr_accessor :failed_import, :issues, :warnings, :headers, :row, :success
 
@@ -92,7 +83,7 @@ class Spree::ProductImport < ActiveRecord::Base
       product_data, variants_data = product_data_hash[:product_data], product_data_hash[:variants_data]
 
       if product_data.present?
-        attribute_fields = build_data_hash(product_data, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
+        attribute_fields = build_data_hash(product_data, importable_product_fields, related_product_fields)
 
         begin
           ActiveRecord::Base.transaction do
@@ -108,7 +99,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
             if product.present? && variants_data.present?
               variants_data.each do |variant_data|
-                attribute_fields = build_data_hash(variant_data, IMPORTABLE_VARIANT_FIELDS, RELATED_VARIANT_FIELDS)
+                attribute_fields = build_data_hash(variant_data, importable_product_fields, related_variant_fields)
                 variant = find_or_build_variant(product, attribute_fields)
                 set_variant_options(variant, variant_data[:option_values]) if variant_data[:option_values]
                 variant.save!
@@ -356,6 +347,29 @@ class Spree::ProductImport < ActiveRecord::Base
     def initialize_import_process
       self.failed_import, self.issues, self.warnings, self.headers = [], [], [], []
       self.row = 0
+    end
+
+    def importable_product_fields
+      [
+        :slug, :sku, :name, :price, :cost_price, :available_on, :shipping_category, :tax_category,
+        :taxons, :option_types, :properties, :description, :option_values, :images, :stocks, :weight,
+        :height, :width, :depth
+      ].to_set
+    end
+
+    def importable_product_fields
+      [
+        :sku, :price, :cost_price, :tax_category, :option_values, :images, :stocks, :weight,
+        :height, :width, :depth
+      ].to_set
+    end
+
+    def related_product_fields
+      [:taxons, :option_types, :option_values, :properties, :images, :stocks].to_set
+    end
+
+    def related_variant_fields
+      [:option_values, :images, :stocks].to_set
     end
 
 end
