@@ -23,7 +23,7 @@ class Spree::ProductImportMailer < Spree::BaseMailer
   end
 
   def to_address
-    addresses = Spree::Config.import_mail_to_addresses.split(',').collect(&:strip)
+    addresses = Spree::Config.import_mail_to_addresses.to_s.split(',').collect(&:strip)
     if addresses.empty?
       raise NoMailToAddressesConfigured
     else

@@ -7,7 +7,10 @@ RSpec.describe Spree::ProductImport, type: :model do
   let(:product_csv_file) { File.open(File.expand_path('../../../fixtures/products.csv', __FILE__)) }
   let(:variant_csv_file) { File.open(File.expand_path('../../../fixtures/variants.csv', __FILE__)) }
   let(:product_import) { build(:product_import, variants_csv: variant_csv_file, products_csv: product_csv_file) }
-
+  before do
+    Spree::Config[:import_mail_to_addresses] = "mail@spreeadmin.com"
+    Spree::Store.current.mail_from_address = "spree@admin.com"
+  end
   describe 'CONSTANTS' do
     ["IMPORTABLE_PRODUCT_FIELDS", "IMPORTABLE_VARIANT_FIELDS", "RELATED_PRODUCT_FIELDS", "RELATED_VARIANT_FIELDS", "IMAGE_EXTENSIONS", "OPTIONS_SEPERATOR"].each do |const_name|
       it "defines #{ const_name}" do
