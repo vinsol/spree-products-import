@@ -1,6 +1,8 @@
 require 'csv'
 
 class Spree::ProductImport < ActiveRecord::Base
+  IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'].to_set
+  OPTIONS_SEPERATOR = '->'
   # ProductImport presumes that sku is a required field for variant
 
   #### Update ####
@@ -20,74 +22,56 @@ class Spree::ProductImport < ActiveRecord::Base
   # Slug is unique identifier of product
   # SKU is unique identifier of variant
 
+  attr_accessor :failed_import, :issues, :warnings, :headers, :row, :success
+
   belongs_to :user
-
-  # CONSTANTS
-  IMPORTABLE_PRODUCT_FIELDS = [:slug, :sku, :name, :price, :cost_price, :available_on, :shipping_category, :tax_category,
-                              :taxons, :option_types, :properties, :description, :option_values, :images, :stocks, :weight,
-                              :height, :width, :depth].to_set
-  IMPORTABLE_VARIANT_FIELDS = [:sku, :price, :cost_price, :tax_category, :option_values, :images, :stocks, :weight,
-                              :height, :width, :depth].to_set
-
-  RELATED_PRODUCT_FIELDS = [:taxons, :option_types, :option_values, :properties, :images, :stocks].to_set
-  RELATED_VARIANT_FIELDS = [:option_values, :images, :stocks].to_set
-
-  IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'].to_set
-  OPTIONS_SEPERATOR = '->'
-
   has_attached_file :products_csv, validate_media_type: false
 
-  # validations
   validates_attachment :products_csv, presence: true, content_type: { content_type: ["text/csv", "text/plain", 'application/vnd.ms-excel'] }
   validates :user, presence: true
   validates :products_csv, presence: true
 
-  # callbacks
-  after_commit :start_product_import
+  after_commit :start_product_import, on: :create
+
+  define_model_callbacks :import_product_data, only: [:before, :after]
+  before_import_product_data :initialize_import_process
+  after_import_product_data :deliver_email
+
+
 
   private
 
     def start_product_import
       import_product_data
     end
-    # handle_asynchronously :start_product_import
 
     def import_product_data
-      @failed_import, @issues, @warnings, @headers, products_data_hash = [], [], [], [], {}
-      row = 0
-      CSV.foreach(products_csv.path, headers: true, header_converters: :symbol, encoding: 'ISO-8859-1') do |row_data|
-        @headers = row_data.headers if @headers.blank?
-        if product_row?(row_data)
-          row += 1
-          products_data_hash[row] = { product_data: row_data }
-        else
-          products_data_hash[row] ||= { product_data: {} }
-          products_data_hash[row][:variants_data] ||= []
-          products_data_hash[row][:variants_data] << row_data
-        end
+      run_callbacks :import_product_data do
+        products_data_hash = group_products_and_variants
+        products_data_hash.each { |key, product_data_raw_hash| import_record(product_data_raw_hash) }
       end
+    end
 
-      products_data_hash.each do |key, product_data_raw_hash|
-        if product_data_raw_hash.present?
-          @success, @issues = true, []
+    handle_asynchronously :import_product_data
+
+    def import_record(product_data_raw_hash = nil)
+      if product_data_raw_hash.present?
+          self.success, self.issues = true, []
           product_data_hash = remove_blank_attributes(product_data_raw_hash)
-          @success, @issues = import_product_from(product_data_hash)
-          unless (@success && @issues.empty?)
-            @failed_import << [product_data_raw_hash, @issues]
+          self.success, self.issues = import_product_from(product_data_hash)
+          unless (self.success && self.issues.empty?)
+            self.failed_import << [product_data_raw_hash, self.issues]
           end
         end
-      end
-
-      deliver_email
     end
 
     # CSV row is considered a product detail row if it contains Name OR Slug.
-    def product_row?(product_data)
-      product_data[:slug].present? || product_data[:name].present?
+    def product_record?(record_data)
+      record_data[:slug].present? || record_data[:name].present?
     end
 
     def deliver_email
-      if @failed_import.empty?
+      if self.failed_import.empty?
         Spree::ProductImportMailer.import_data_success_email(id, "products_csv").deliver_later
       else
         failed_import_csv = build_csv_from_failed_import_list
@@ -99,7 +83,7 @@ class Spree::ProductImport < ActiveRecord::Base
       product_data, variants_data = product_data_hash[:product_data], product_data_hash[:variants_data]
 
       if product_data.present?
-        attribute_fields = build_data_hash(product_data, IMPORTABLE_PRODUCT_FIELDS, RELATED_PRODUCT_FIELDS)
+        attribute_fields = build_data_hash(product_data, importable_product_fields, related_product_fields)
 
         begin
           ActiveRecord::Base.transaction do
@@ -115,7 +99,7 @@ class Spree::ProductImport < ActiveRecord::Base
 
             if product.present? && variants_data.present?
               variants_data.each do |variant_data|
-                attribute_fields = build_data_hash(variant_data, IMPORTABLE_VARIANT_FIELDS, RELATED_VARIANT_FIELDS)
+                attribute_fields = build_data_hash(variant_data, importable_product_fields, related_variant_fields)
                 variant = find_or_build_variant(product, attribute_fields)
                 set_variant_options(variant, variant_data[:option_values]) if variant_data[:option_values]
                 variant.save!
@@ -127,11 +111,11 @@ class Spree::ProductImport < ActiveRecord::Base
             product.save!
           end
         rescue Exception => exception
-          @issues << "ERROR: #{ exception.message }"
-          return [false, @issues]
+          self.issues << "ERROR: #{ exception.message }"
+          return [false, self.issues]
         end
       end
-      [true, @issues]
+      [true, self.issues]
     end
 
     def build_data_hash(data_row, attributes_to_read, related_attr)
@@ -275,22 +259,18 @@ class Spree::ProductImport < ActiveRecord::Base
         if taxon_from_chain
           product.taxons << taxon_from_chain unless product.taxons.include? taxon_from_chain
         else
-          @issues << "WARNING: Taxon - #{ taxon } not found"
+          self.issues << "WARNING: Taxon - #{ taxon } not found"
         end
       end
     end
 
     def add_stocks(model_obj, stocks)
-      variant = if model_obj.is_a?(Spree::Product)
-        model_obj.master
-      else
-        model_obj
-      end
+      variant = model_obj.is_a?(Spree::Product) ? model_obj.master : model_obj
 
       stocks_data = stocks.to_s.split(',')
       return if stocks_data.empty?
-      stocks_data.each do |stock_data|
 
+      stocks_data.each do |stock_data|
         if (stock = stock_data.split(OPTIONS_SEPERATOR).collect(&:squish)).blank?
           return
         elsif stock.length == 1
@@ -312,11 +292,11 @@ class Spree::ProductImport < ActiveRecord::Base
     end
 
     def build_csv_from_failed_import_list
-      column_names = @headers + [:issues]
+      column_names = self.headers + [:issues]
 
       CSV.generate do |csv|
         csv << column_names
-        @failed_import.each do |data_row|
+        self.failed_import.each do |data_row|
           data_hash, issues = data_row[0], data_row[1]
           data = data_hash[:product_data].fields
           data << issues.join(', ')
@@ -346,6 +326,50 @@ class Spree::ProductImport < ActiveRecord::Base
       else
         raise 'Image directory not found'
       end
+    end
+
+
+    def group_products_and_variants(products_data_hash = {})
+      CSV.foreach(products_csv.path, headers: true, header_converters: :symbol, encoding: 'ISO-8859-1') do |row_data|
+        self.headers = row_data.headers if self.headers.blank?
+        if product_record?(row_data)
+          self.row += 1
+          products_data_hash[row] = { product_data: row_data }
+        else
+          products_data_hash[row] ||= { product_data: {} }
+          products_data_hash[row][:variants_data] ||= []
+          products_data_hash[row][:variants_data] << row_data
+        end
+      end
+      products_data_hash
+    end
+
+    def initialize_import_process
+      self.failed_import, self.issues, self.warnings, self.headers = [], [], [], []
+      self.row = 0
+    end
+
+    def importable_product_fields
+      [
+        :slug, :sku, :name, :price, :cost_price, :available_on, :shipping_category, :tax_category,
+        :taxons, :option_types, :properties, :description, :option_values, :images, :stocks, :weight,
+        :height, :width, :depth
+      ].to_set
+    end
+
+    def importable_product_fields
+      [
+        :sku, :price, :cost_price, :tax_category, :option_values, :images, :stocks, :weight,
+        :height, :width, :depth
+      ].to_set
+    end
+
+    def related_product_fields
+      [:taxons, :option_types, :option_values, :properties, :images, :stocks].to_set
+    end
+
+    def related_variant_fields
+      [:option_values, :images, :stocks].to_set
     end
 
 end
