@@ -1,8 +1,8 @@
 class Spree::Admin::ProductImportsController < Spree::Admin::BaseController
-  before_action :initialize_resource, only: [:new]
-  before_action :load_resource, only: [:create]
+  before_action :load_resource, only: :create
 
   def new
+    @product_import = Spree::ProductImport.new
   end
 
   def create
@@ -18,10 +18,6 @@ class Spree::Admin::ProductImportsController < Spree::Admin::BaseController
     def product_import_params
        product_import_params = params.require(:product_import).permit(:products_csv)
        product_import_params.merge(user_id: spree_current_user.id)
-    end
-
-    def initialize_resource
-      @product_import = Spree::ProductImport.new
     end
 
     def load_resource
